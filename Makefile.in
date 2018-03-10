@@ -43,13 +43,6 @@ PROFS = $(patsubst %.c, %$(EXEEXT), $(PROF_SOURCES))
 TUNE_SOURCES = $(wildcard tune/*.c)
 TUNE = $(patsubst %.c, %$(EXEEXT), $(TUNE_SOURCES))
 
-EXT_SOURCES = $(foreach ext, $(EXTENSIONS), $(foreach dir, $(patsubst $(ext)/%.h, %, $(wildcard $(ext)/*.h)), $(wildcard $(ext)/$(dir)/*.c)))
-EXT_TEST_SOURCES = $(foreach ext, $(EXTENSIONS), $(foreach dir, $(patsubst $(ext)/%.h, %, $(wildcard $(ext)/*.h)), $(wildcard $(ext)/$(dir)/test/t-*.c)))
-EXT_TUNE_SOURCES = $(foreach ext, $(EXTENSIONS), $(foreach dir, $(patsubst $(ext)/%.h, %, $(wildcard $(ext)/*.h)), $(wildcard $(ext)/$(dir)/tune/*.c)))
-EXT_PROF_SOURCES = $(foreach ext, $(EXTENSIONS), $(foreach dir, $(patsubst $(ext)/%.h, %, $(wildcard $(ext)/*.h)), $(wildcard $(ext)/$(dir)/profile/p-*.c)))
-EXT_OBJS = $(foreach ext, $(EXTENSIONS), $(foreach dir, $(patsubst $(ext)/%.h, %, $(wildcard $(ext)/*.h)), build/$(dir).lo))
-EXT_HEADERS = $(foreach ext, $(EXTENSIONS), $(wildcard $(ext)/*.h))
-
 all: library
 
 quiet: library
@@ -66,7 +59,7 @@ clean:
 distclean: clean
 	rm -f Makefile
 
-profile: library $(PROF_SOURCES) $(EXT_PROF_SOURCES) build/profiler.o
+profile: library $(PROF_SOURCES) build/profiler.o
 	mkdir -p build/profile
 ifndef MOD
 	$(AT)$(foreach prog, $(PROFS), $(CC) $(ABI_FLAG) -std=c99 -O2 -g $(INCS) $(prog).c build/profiler.o -o build/$(prog) $(LIBS) || exit $$?;)
@@ -76,7 +69,7 @@ else
 	$(AT)$(foreach dir, $(MOD), mkdir -p build/$(dir)/profile; BUILD_DIR=../build/$(dir); export BUILD_DIR; $(MAKE) -f ../Makefile.subdirs -C $(dir) profile || exit $$?;)
 endif
 
-tune: library $(TUNE_SOURCES) $(EXT_TUNE_SOURCES)
+tune: library $(TUNE_SOURCES)
 	mkdir -p build/tune
 	$(AT)$(foreach prog, $(TUNE), $(CC) $(CFLAGS) $(INCS) $(prog).c -o build/$(prog) $(LIBS) || exit $$?;)
 	$(AT)$(foreach dir, $(BUILD_DIRS), mkdir -p build/$(dir)/tune; BUILD_DIR=../build/$(dir); export BUILD_DIR; $(MAKE) -f ../Makefile.subdirs -C $(dir) tune || exit $$?;)
@@ -86,15 +79,15 @@ examples: library $(EXMP_SOURCES)
 	mkdir -p build/examples
 	$(AT)$(foreach prog, $(EXMPS), $(CC) $(CFLAGS) $(INCS) $(prog).c -o build/$(prog) $(LIBS) || exit $$?;)
 
-$(ANTIC_LIB): $(LOBJS) $(LIB_SOURCES) $(EXT_SOURCES) $(HEADERS) $(EXT_HEADERS) | build build/interfaces
+$(ANTIC_LIB): $(LOBJS) $(LIB_SOURCES) $(HEADERS) | build build/interfaces
 	$(AT)$(foreach ext, $(EXTENSIONS), $(foreach dir, $(patsubst $(ext)/%.h, %, $(wildcard $(ext)/*.h)), mkdir -p build/$(dir); BUILD_DIR=$(CURDIR)/build/$(dir); export BUILD_DIR; MOD_DIR=$(dir); export MOD_DIR; $(MAKE) -f $(CURDIR)/Makefile.subdirs -C $(ext)/$(dir) shared || exit $$?;))
 	$(AT)$(foreach dir, $(BUILD_DIRS), mkdir -p build/$(dir); BUILD_DIR=../build/$(dir); export BUILD_DIR; MOD_DIR=$(dir); export MOD_DIR; $(MAKE) -f ../Makefile.subdirs -C $(dir) shared || exit $$?;)
 	$(AT)if [ "$(WANT_NTL)" -eq "1" ]; then \
 	  $(MAKE) build/interfaces/NTL-interface.lo; \
-	  $(CXX) $(ABI_FLAG) -shared $(EXTRA_SHARED_FLAGS) build/interfaces/NTL-interface.lo $(LOBJS) $(MOD_LOBJS) $(EXT_OBJS) -o $(ANTIC_LIB) $(LDFLAGS) $(LIBS2); \
+	  $(CXX) $(ABI_FLAG) -shared $(EXTRA_SHARED_FLAGS) build/interfaces/NTL-interface.lo $(LOBJS) $(MOD_LOBJS) -o $(ANTIC_LIB) $(LDFLAGS) $(LIBS2); \
 	fi
 	$(AT)if [ "$(WANT_NTL)" -ne "1" ]; then \
-	  $(CC) $(ABI_FLAG) -shared $(EXTRA_SHARED_FLAGS) $(LOBJS) $(MOD_LOBJS) $(EXT_OBJS) -o $(ANTIC_LIB) $(LDFLAGS) $(LIBS2); \
+	  $(CC) $(ABI_FLAG) -shared $(EXTRA_SHARED_FLAGS) $(LOBJS) $(MOD_LOBJS) -o $(ANTIC_LIB) $(LDFLAGS) $(LIBS2); \
 	fi
 	-$(AT)if [ "$(ANTIC_SOLIB)" -eq "1" ]; then \
 		$(LDCONFIG) -n "$(CURDIR)"; \
@@ -102,7 +95,7 @@ $(ANTIC_LIB): $(LOBJS) $(LIB_SOURCES) $(EXT_SOURCES) $(HEADERS) $(EXT_HEADERS) |
 	ln -sf "$(ANTIC_LIB)" "$(ANTIC_LIBNAME)"; \
 	ln -sf "$(ANTIC_LIB)" "$(ANTIC_LIBNAME).$(ANTIC_MAJOR)"; \
 
-libantic.a: $(OBJS) $(LIB_SOURCES) $(EXT_SOURCES) $(HEADERS) $(EXT_HEADERS) | build build/interfaces
+libantic.a: $(OBJS) $(LIB_SOURCES) $(HEADERS) | build build/interfaces
 	$(AT)$(foreach ext, $(EXTENSIONS), $(foreach dir, $(patsubst $(ext)/%.h, %, $(wildcard $(ext)/*.h)), mkdir -p build/$(dir); BUILD_DIR=$(CURDIR)/build/$(dir); export BUILD_DIR; MOD_DIR=$(dir); export MOD_DIR; $(MAKE) -f $(CURDIR)/Makefile.subdirs -C $(ext)/$(dir) static || exit $$?;))
 	$(AT)$(foreach dir, $(BUILD_DIRS), mkdir -p build/$(dir); BUILD_DIR=../build/$(dir); export BUILD_DIR; MOD_DIR=$(dir); export MOD_DIR; $(MAKE) -f ../Makefile.subdirs -C $(dir) static || exit $$?;)
 	$(AT)if [ "$(ANTIC_SHARED)" -eq "0" ]; then \
@@ -172,9 +165,6 @@ install: library
 		cp libantic.a $(DESTDIR)$(PREFIX)/$(LIBDIR); \
 	fi
 	cp $(HEADERS) $(DESTDIR)$(PREFIX)/include/antic
-	$(AT)if [ ! -z $(EXT_HEADERS) ]; then \
-		cp $(EXT_HEADERS) $(DESTDIR)$(PREFIX)/include/antic; \
-	fi
 
 build:
 	mkdir -p build

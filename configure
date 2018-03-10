@@ -33,8 +33,6 @@ WANT_TLS=0
 WANT_CXX=0
 ASSERT=0
 BUILD=
-EXTENSIONS=
-EXT_MODS=
 EXTRA_BUILD=
 
 usage()
@@ -102,9 +100,6 @@ while [ "$1" != "" ]; do
          ;;
       --with-flint)
          FLINT_DIR=$(absolute_path "$VALUE")
-         ;;
-      --extensions)
-         EXTENSIONS=$(absolute_path "$VALUE")
          ;;
       --build)
          BUILD="$VALUE"
